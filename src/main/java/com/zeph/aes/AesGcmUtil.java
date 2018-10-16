@@ -13,19 +13,13 @@ public class AesGcmUtil {
   private SecretKey getSecretKey(byte[] key) {
     SecureRandom secureRandom = new SecureRandom();
     secureRandom.nextBytes(key);
-    SecretKey secretKey = new SecretKeySpec(key, "AES");
-    return secretKey;
+    return new SecretKeySpec(key, "AES");
   }
 
-  private Cipher initCipher(SecretKey secretKey, byte[] iv) throws Exception {
-    final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-    GCMParameterSpec parameterSpec = new GCMParameterSpec(128, iv);
-    cipher.init(Cipher.ENCRYPT_MODE, secretKey, parameterSpec);
+  private Cipher initCipher(SecretKey secretKey, byte[] iv, int encryptMode) throws Exception {
+    Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+    cipher.init(encryptMode, secretKey, new GCMParameterSpec(128, iv));
     return cipher;
-  }
-
-  private byte[] getCipherText(Cipher cipher, String plainText) throws Exception {
-    return cipher.doFinal(plainText.getBytes());
   }
 
   private String contactAndBase64Encoding(byte[] iv, byte[] cipherText) {
@@ -39,26 +33,32 @@ public class AesGcmUtil {
 
   private String encryptPlainText(String plainText, SecretKey secretKey) throws Exception {
     byte[] iv = new byte[12];
-    Cipher cipher = initCipher(secretKey, iv);
-    byte[] cipherText = getCipherText(cipher, plainText);
+    Cipher cipher = initCipher(secretKey, iv, Cipher.ENCRYPT_MODE);
+    byte[] cipherText = cipher.doFinal(plainText.getBytes());
     return contactAndBase64Encoding(iv, cipherText);
   }
 
   private String decryptSecretText(String secretText, SecretKey aes) throws Exception {
     byte[] cipherMessage = Base64.getDecoder().decode(secretText);
+
     ByteBuffer byteBuffer = ByteBuffer.wrap(cipherMessage);
     int ivLength = byteBuffer.getInt();
     if (ivLength < 12 || ivLength >= 16) {
       throw new IllegalArgumentException("invalid iv length");
     }
+
     byte[] iv = new byte[ivLength];
     byteBuffer.get(iv);
+
     byte[] cipherText = new byte[byteBuffer.remaining()];
     byteBuffer.get(cipherText);
-    final Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-    cipher.init(Cipher.DECRYPT_MODE, aes, new GCMParameterSpec(128, iv));
-    byte[] plainText = cipher.doFinal(cipherText);
-    return new String(plainText);
+
+    return new String(decipherText(aes, iv, cipherText));
+  }
+
+  private byte[] decipherText(SecretKey aes, byte[] iv, byte[] cipherText) throws Exception {
+    Cipher cipher = initCipher(aes, iv, Cipher.DECRYPT_MODE);
+    return cipher.doFinal(cipherText);
   }
 
   public static void main(String[] args) throws Exception {
