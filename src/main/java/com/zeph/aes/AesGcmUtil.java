@@ -11,8 +11,13 @@ import java.util.Base64;
 public class AesGcmUtil {
 
   private SecretKey getSecretKey(byte[] key) {
-    SecureRandom secureRandom = new SecureRandom();
-    secureRandom.nextBytes(key);
+    String aesKey = System.getenv("AesKey");
+    if (aesKey != null) {
+      key = aesKey.getBytes();
+    } else {
+      SecureRandom secureRandom = new SecureRandom();
+      secureRandom.nextBytes(key);
+    }
     return new SecretKeySpec(key, "AES");
   }
 
